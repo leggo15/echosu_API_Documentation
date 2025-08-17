@@ -1,5 +1,7 @@
 # API Documentation
+
 Source code can be found here: https://github.com/leggo15/Echosu/blob/main/echo/views/api.py
+
 # Table of Contents
 
 - [Authentication](#authentication)
@@ -8,7 +10,7 @@ Source code can be found here: https://github.com/leggo15/Echosu/blob/main/echo/
     - [Store the Token Securely](#store-the-token-securely)
   - [Using the API Token](#using-the-api-token)
 - [API Endpoints](#api-endpoints)
-  - [1. Tags for Beatmaps](#1-tags-for-beatmaps)
+  - [1. Tag Applications for a Beatmap (with includes)](#1-tag-applications-for-a-beatmap-with-includes)
   - [2. Beatmap ViewSet](#2-beatmap-viewset)
   - [3. Tag ViewSet](#3-tag-viewset)
   - [4. Tag Application ViewSet](#4-tag-application-viewset)
@@ -48,63 +50,38 @@ headers = {
 
 ## API Endpoints
 
-### 1. Tags for Beatmaps
+### 1. Tag Applications for a Beatmap
 
-Retrieve tags associated with a specific beatmap or a batch of beatmaps.
+All tag data for a beatmap is exposed via the tag applications endpoint, filtered by `beatmap_id`. `include` flags allow attaching derived data per tag.
 
-- **URL for batch:** `/api/beatmaps/tags/`
-- **URL for single map:** `/api/beatmaps/<str:beatmap_id>/tags/`
+- **URL:** `/api/tag-applications/?beatmap_id=<beatmap_id>&include=tag_counts,tag_timestamps,predicted_tags&user=me`
 - **Methods:** `GET`
-- **Authentication:** Required (Token-Based)
-- **Parameters:**
-  - `beatmap_id` (optional): The ID of a specific beatmap.
-    - **Type:** string
-    - **Usage:** To fetch tags for a single beatmap.
-  - `batch_size` (optional): Number of beatmaps to fetch in a batch.
-    - **Type:** integer
-    - **Default:** 500
-    - **Usage:** For batch retrieval of beatmaps with tags.
-  - `offset` (optional): The starting point for batch retrieval.
-    - **Type:** integer
-    - **Default:** 0
-    - **Usage:** For paginating through batches.
-- **Responses:**
-  - **200 OK:** Successfully retrieved tags.
+- **Authentication:** Required (Token or logged-in session)
+- **Query Parameters:**
+
+  - `beatmap_id` (required): string, the beatmap ID to fetch applications for
+  - `include` (optional): comma-separated extras. Supported:
+    - `tag_counts`: attach `count` to each `tag` (applications per tag on this beatmap; excludes predictions by default)
+    - `tag_timestamps`: attach `consensus_intervals` to each `tag` (aggregated intervals across users)
+    - `predicted_tags`: include predicted tags
+  - `user` (optional): if `me`, attach `user_intervals` for the current user under each `tag`
+- **Response (lite entries with per-tag extras):**
 
 ```json
 [
-    {
-        "beatmap_id": "1244293",
-        "title": "Test Beatmap",
-        "artist": "Test Artist",
-        "tags": [
-            {
-                "tag": "aim",
-                "count": 10
-            },
-            {
-                "tag": "stream",
-                "count": 5
-            }
-        ]
-    }
+  {
+    "id": 11155,
+    "user": {"id": 1, "username": "testuser"},
+    "tag": {
+      "id": 178,
+      "name": "aim",
+      "count": 1,
+      "consensus_intervals": [[83.18, 93.75], [127.34, 135.47]],
+      "user_intervals": [[90.0, 92.0]]
+    },
+    "created_at": "2025-08-13T19:46:56.480951Z"
+  }
 ]
-```
-
-- **404 Not Found:** Beatmap(s) not found.
-
-```json
-{
-    "detail": "Beatmap not found."
-}
-```
-
-or
-
-```json
-{
-    "detail": "No beatmaps found."
-}
 ```
 
 ### 2. Beatmap ViewSet
@@ -113,16 +90,16 @@ Interact with Beatmap data. Provides read-only operations and filtering.
 
 - **Base URL:** `/api/beatmaps/`
 - **Methods:** `GET`
-- **Authentication:** Required (Token-Based)
+- **Authentication:** Required (Token or logged-in session)
 - **Actions:**
   - **List Beatmaps**
     - **URL:** `/api/beatmaps/`
     - **Method:** `GET`
     - **Description:** Retrieve a list of all beatmaps.
   - **Retrieve a Beatmap**
-    - **URL:** `/api/beatmaps/{id}/`
+    - **URL:** `/api/beatmaps/{beatmap_id}/`
     - **Method:** `GET`
-    - **Description:** Retrieve details of a specific beatmap by its ID.
+    - **Description:** Retrieve details of a specific beatmap by its beatmap ID.
   - **Filtered Beatmaps**
     - **URL:** `/api/beatmaps/filtered/`
     - **Method:** `GET`
@@ -153,7 +130,7 @@ Interact with Tag data. Provides standard read-only operations.
 
 - **Base URL:** `/api/tags/`
 - **Methods:** `GET`
-- **Authentication:** Required (Token-Based)
+- **Authentication:** Required (Token or logged-in session)
 - **Actions:**
   - **List Tags**
     - **URL:** `/api/tags/`
@@ -162,7 +139,7 @@ Interact with Tag data. Provides standard read-only operations.
   - **Retrieve a Tag**
     - **URL:** `/api/tags/{id}/`
     - **Method:** `GET`
-    - **Description:** Retrieve details of a specific tag by its ID.
+    - **Description:** Retrieve specific tag by its ID.
 
 ```json
 {
@@ -177,12 +154,12 @@ Manage tag applications to beatmaps. Provides standard read-only operations, and
 
 - **Base URL:** `/api/tag-applications/`
 - **Methods:** `GET`
-- **Authentication:** Required (Token-Based)
+- **Authentication:** Required (Token or logged-in session)
 - **Actions:**
   - **List Tag Applications**
     - **URL:** `/api/tag-applications/`
     - **Method:** `GET`
-    - **Description:** Retrieve a list of all tag applications.
+    - **Description:** Retrieve a list of tag applications. When filtered with `?beatmap_id=<id>`, returns a lite representation and supports `include=tag_counts,tag_timestamps` and `user=me` to attach derived data to each `tag`.
   - **Retrieve a Tag Application**
     - **URL:** `/api/tag-applications/{id}/`
     - **Method:** `GET`
@@ -238,7 +215,7 @@ Manage user profiles. Provides standard read-only operations.
 
 - **Base URL:** `/api/user-profiles/`
 - **Methods:** `GET`
-- **Authentication:** Required (Token-Based)
+- **Authentication:** Required (Token or logged-in session)
 - **Actions:**
   - **List User Profiles**
     - **URL:** `/api/user-profiles/`
@@ -263,12 +240,12 @@ Manage user profiles. Provides standard read-only operations.
 
 ## Examples
 
-### 1. Fetch Tags for a Specific Beatmap
+### 1. Fetch Tag Data for a Specific Beatmap
 
 **Endpoint:**
 
 ```bash
-GET /api/beatmaps/2897724/tags/
+GET /api/tag-applications/?beatmap_id=2897724&include=tag_counts,tag_timestamps
 ```
 
 **Headers:**
@@ -280,25 +257,21 @@ headers = {
 }
 ```
 
-**Response:**
+**Response (excerpt):**
 
 ```json
 [
-   {
-      "beatmap_id":"2897724",
-      "title":"Last Exit To Brooklyn",
-      "artist":"Modern Talking",
-      "tags":[
-         {
-            "tag":"aim",
-            "count":4
-         }
-         {
-            "tag":"ohio",
-            "count":1
-         }
-      ]
-   }
+  {
+    "id": 11155,
+    "user": {"id": 1, "username": "testuser"},
+    "tag": {
+      "id": 3,
+      "name": "aim",
+      "count": 4,
+      "consensus_intervals": [[12.3, 25.0]]
+    },
+    "created_at": "2025-08-13T19:46:56.480951Z"
+  }
 ]
 ```
 
@@ -403,7 +376,7 @@ Basic script where any of the endpoint URL's can be used:
 import requests
 import json
 
-API_TOKEN = 'NoXLUxiMVGRRZTJKbk54TlarrnoMgtzl99qqwX4dTtghBjYlQp8UKw8R1iGOFY1x'
+API_TOKEN = 'YOUR_TOKEN'
 BASE_URL = 'https://www.echosu.com'
 
 headers = {
@@ -411,11 +384,21 @@ headers = {
     'Content-Type': 'application/json',
 }
 
-response = requests.get(f'{BASE_URL}/api/beatmaps/tags/', headers=headers)
+resp = requests.get(f'{BASE_URL}/api/tag-applications/', params={
+    'beatmap_id': '2897724',
+    'include': 'tag_counts,tag_timestamps',
+}, headers=headers)
 
-if response.status_code == 200:
-    beatmaps = response.json()
-    print(beatmaps)
+if resp.status_code == 200:
+    apps = resp.json()
+    # Derive unique tag counts
+    counts = {}
+    for item in apps:
+        t = item.get('tag') or {}
+        if not t: continue
+        key = (t.get('id'), t.get('name'))
+        counts[key] = t.get('count', 0)
+    print(json.dumps({str(k): v for k, v in counts.items()}, indent=2))
 ```
 
 Script applying tags to a map (and formating the print for readability):
@@ -425,7 +408,7 @@ import requests
 import json
 
 
-API_TOKEN = 'NoXLUxiMVGRRZTJKbk54TlarrnoMgtzl99qqwX4dTtghBjYlQp8UKw8R1iGOFY1x'
+API_TOKEN = 'YOUR_TOKEN'
 BASE_URL = 'https://www.echosu.com'
 
 headers = {
@@ -444,7 +427,7 @@ def toggle_tags(beatmap_id, tags):
   
     try:
         response = requests.post(url, headers=headers, data=json.dumps(payload))
-    
+  
         if response.status_code == 200:
             return response.json()
         else:
